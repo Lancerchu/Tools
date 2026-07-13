@@ -1,0 +1,1437 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>本地简历工具</title>
+  <style>
+    :root {
+      --bg: #eef2f6;
+      --panel: #ffffff;
+      --ink: #1f2933;
+      --muted: #6b7280;
+      --line: #d8e0ea;
+      --blue: #3f7cff;
+      --blue-soft: #eaf2ff;
+      --green: #0f766e;
+      --theme-primary: #3f7cff;
+      --theme-soft: #eaf2ff;
+      --theme-deep: #1f4fbf;
+      --theme-border: #bcd4ff;
+      --side: #f8fafc;
+      --shadow: 0 14px 40px rgba(15, 23, 42, .12);
+      --resume-font: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+      --resume-scale: 1;
+      --preview-zoom: 1;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+      overflow: hidden;
+    }
+    button, input, textarea, select {
+      font: inherit;
+    }
+    .app {
+      height: 100vh;
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+    .toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      flex-wrap: nowrap;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 18px;
+      max-width: 100%;
+      min-width: 0;
+      overflow-x: auto;
+      overflow-y: hidden;
+      background: rgba(255, 255, 255, .92);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(12px);
+    }
+    .brand {
+      font-weight: 800;
+      letter-spacing: 0;
+      margin-right: 8px;
+      white-space: nowrap;
+    }
+    .toolbar .spacer { flex: 1; }
+    .toolbar select,
+    .toolbar button,
+    .file-btn {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink);
+      height: 34px;
+      border-radius: 8px;
+      padding: 0 11px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .toolbar button.primary {
+      color: #fff;
+      border-color: var(--blue);
+      background: var(--blue);
+    }
+    .status {
+      color: var(--muted);
+      font-size: 12px;
+      min-width: 88px;
+      text-align: right;
+    }
+    .file-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 400;
+      gap: 0;
+    }
+    .file-btn input { display: none; }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      min-height: 0;
+      width: 100%;
+      max-width: 100%;
+      overflow: hidden;
+    }
+    .editor {
+      overflow: auto;
+      padding: 18px;
+      border-right: 1px solid var(--line);
+      background: var(--side);
+      min-width: 0;
+      width: 100%;
+      max-width: 100%;
+    }
+    .preview-wrap {
+      overflow: auto;
+      padding: 28px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-width: 0;
+      width: 100%;
+      max-width: 100%;
+    }
+    .resume-stack {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 22px;
+      width: 100%;
+      transform: scale(var(--preview-zoom));
+      transform-origin: top center;
+    }
+    details {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, .04);
+    }
+    summary {
+      padding: 12px 14px;
+      cursor: pointer;
+      font-weight: 800;
+      list-style: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary::after {
+      content: "+";
+      color: var(--blue);
+      font-weight: 900;
+    }
+    details[open] summary::after { content: "-"; }
+    .summary-title {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .summary-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+      margin-right: 12px;
+    }
+    .deleted-sections {
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      background: #fbfdff;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .restore-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .section-body {
+      padding: 0 14px 14px;
+      border-top: 1px solid #eef2f7;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    label {
+      display: grid;
+      gap: 5px;
+      color: #3b4655;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    input, textarea, select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 8px 9px;
+      background: #fff;
+      color: var(--ink);
+      outline: none;
+    }
+    textarea {
+      min-height: 82px;
+      resize: vertical;
+    }
+    input:focus, textarea:focus, select:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(63, 124, 255, .12);
+    }
+    .entry {
+      border: 1px solid #e5ebf2;
+      border-radius: 8px;
+      padding: 12px;
+      margin-top: 12px;
+      background: #fbfdff;
+    }
+    .entry-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .mini-btn {
+      height: 28px;
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 7px;
+      padding: 0 9px;
+      cursor: pointer;
+      color: #334155;
+    }
+    .mini-btn:disabled {
+      opacity: .42;
+      cursor: not-allowed;
+    }
+    .danger { color: #b42318; }
+    .entry-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .add-btn {
+      width: 100%;
+      margin-top: 10px;
+      height: 34px;
+      border: 1px dashed #9bb6e8;
+      color: #2f6fdb;
+      background: #f7fbff;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 800;
+    }
+    .photo-row {
+      display: grid;
+      grid-template-columns: 76px 1fr;
+      gap: 12px;
+      align-items: center;
+      margin-top: 10px;
+    }
+    .photo-thumb {
+      width: 72px;
+      height: 92px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #f2f5fa;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .photo-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .resume {
+      width: 210mm;
+      height: 297mm;
+      min-height: 297mm;
+      background: #fff;
+      box-shadow: var(--shadow);
+      color: #242933;
+      padding: 12mm 12mm;
+      transform-origin: top center;
+      flex: 0 0 auto;
+      overflow: hidden;
+      font-family: var(--resume-font);
+      font-size: calc(14px * var(--resume-scale));
+      line-height: var(--resume-line-height);
+    }
+    .resume p { margin: 0; }
+    .resume ul {
+      margin: 3px 0 0 18px;
+      padding: 0;
+    }
+    .resume li {
+      margin: 0 0 var(--resume-module-gap) 0;
+      line-height: var(--resume-line-height);
+    }
+    .r-header {
+      display: grid;
+      grid-template-columns: 1fr 34mm;
+      gap: 10mm;
+      align-items: center;
+      text-align: center;
+      margin-bottom: 9mm;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .r-name {
+      font-size: calc(24px * var(--resume-scale));
+      font-weight: 900;
+      letter-spacing: 0;
+    }
+    .r-target {
+      color: #5b6472;
+      margin-left: 8px;
+      font-size: calc(12px * var(--resume-scale));
+      font-weight: 600;
+    }
+    .r-contact {
+      margin-top: 4px;
+      font-size: calc(10.3px * var(--resume-scale));
+      color: #475569;
+    }
+    .r-contact a { color: #2f6fdb; text-decoration: none; }
+    .r-links {
+      margin-top: 1px;
+    }
+    .r-links a {
+      display: block;
+      line-height: var(--resume-line-height);
+    }
+    .r-photo {
+      width: 24mm;
+      height: 31mm;
+      justify-self: center;
+      border: 1px solid #d9e2ef;
+      background: #f2f5fa;
+      display: grid;
+      place-items: center;
+      color: #8a95a6;
+      font-size: calc(12px * var(--resume-scale));
+      overflow: hidden;
+    }
+    .r-photo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .r-section { margin-top: 6.5mm; }
+    .r-section-title {
+      display: grid;
+      grid-template-columns: 2.2mm 1fr;
+      align-items: stretch;
+      margin-bottom: 4.2mm;
+      color: #2f6fdb;
+      font-size: calc(12px * var(--resume-scale));
+      font-weight: 900;
+      break-after: avoid;
+      page-break-after: avoid;
+    }
+    .r-section-title::before { content: ""; background: var(--theme-primary); }
+    .r-section-title span {
+      background: var(--theme-soft);
+      padding: 2.5mm 3mm;
+    }
+    .r-item { margin-bottom: calc(4.3mm + var(--resume-module-gap)); }
+    .keep-together {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .r-line {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8mm;
+      align-items: baseline;
+      font-size: calc(11.2px * var(--resume-scale));
+      font-weight: 900;
+    }
+    .r-date {
+      color: #666;
+      font-size: calc(10px * var(--resume-scale));
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .r-sub {
+      margin-top: 1px;
+      font-size: calc(10.2px * var(--resume-scale));
+      color: #384252;
+      font-weight: 700;
+    }
+    .r-body {
+      margin-top: 1.5mm;
+      font-size: calc(10px * var(--resume-scale));
+      line-height: var(--resume-line-height);
+    }
+    .r-kv {
+      font-size: calc(10.1px * var(--resume-scale));
+      margin-bottom: 1.2mm;
+    }
+    .r-kv b { font-weight: 900; }
+
+    .template-sidebar {
+      padding: 0;
+      display: grid;
+      grid-template-columns: 64mm 1fr;
+      min-height: 297mm;
+    }
+    .template-sidebar .side {
+      background: #eef4fb;
+      padding: 12mm 6mm;
+    }
+    .template-sidebar .main {
+      padding: 12mm 10mm;
+    }
+    .template-sidebar .r-header {
+      display: block;
+      text-align: left;
+      margin: 0 0 8mm;
+    }
+    .template-sidebar .r-photo {
+      width: 28mm;
+      height: 36mm;
+      margin-bottom: 7mm;
+      justify-self: start;
+    }
+    .template-sidebar .r-name { font-size: calc(23px * var(--resume-scale)); }
+    .template-sidebar .r-contact {
+      display: grid;
+      gap: 3px;
+      font-size: calc(10px * var(--resume-scale));
+      margin-top: 6mm;
+    }
+    .template-sidebar .r-section-title {
+      display: block;
+      color: #0f4f89;
+      border-bottom: 2px solid #7aa7d9;
+      padding-bottom: 2mm;
+      margin-bottom: 3.5mm;
+    }
+    .template-sidebar .r-section-title::before { display: none; }
+    .template-sidebar .r-section-title span {
+      background: transparent;
+      padding: 0;
+    }
+
+    .template-minimal {
+      padding: 12mm 14mm;
+      box-shadow: var(--shadow);
+    }
+    .template-minimal .r-header {
+      grid-template-columns: 1fr auto;
+      text-align: left;
+      border-bottom: 1.5px solid #111827;
+      padding-bottom: 5mm;
+      margin-bottom: 6mm;
+    }
+    .template-minimal .r-name { font-size: calc(25px * var(--resume-scale)); }
+    .template-minimal .r-target { color: #111827; }
+    .template-minimal .r-section-title {
+      display: block;
+      color: #111827;
+      border-bottom: 1px solid #cbd5e1;
+      margin-bottom: 3mm;
+      font-size: calc(12px * var(--resume-scale));
+    }
+    .template-minimal .r-section-title::before { display: none; }
+    .template-minimal .r-section-title span {
+      background: transparent;
+      padding: 0 0 1.5mm;
+      display: block;
+    }
+
+    .template-finance {
+      padding: 13mm 14mm;
+      color: #1f2a2a;
+    }
+    .template-finance .r-header {
+      grid-template-columns: 1fr 30mm;
+      text-align: left;
+      border-bottom: 2px solid var(--theme-primary);
+      padding-bottom: 5mm;
+      margin-bottom: 6mm;
+    }
+    .template-finance .r-name { color: var(--theme-deep); }
+    .template-finance .r-target,
+    .template-finance .r-contact a,
+    .template-finance .r-section-title {
+      color: var(--theme-primary);
+    }
+    .template-finance .r-photo {
+      border-color: var(--theme-border);
+      background: var(--theme-soft);
+    }
+    .template-finance .r-section-title {
+      display: block;
+      border-left: 3mm solid var(--theme-primary);
+      border-bottom: 1px solid var(--theme-border);
+      padding-left: 2.2mm;
+      margin-bottom: 3.5mm;
+    }
+    .template-finance .r-section-title::before { display: none; }
+    .template-finance .r-section-title span {
+      background: transparent;
+      padding: 0 0 1.5mm;
+      display: block;
+    }
+
+    .template-compact {
+      padding: 9mm 10mm;
+    }
+    .template-compact .r-header {
+      grid-template-columns: 1fr 25mm;
+      margin-bottom: 5mm;
+    }
+    .template-compact .r-photo {
+      width: 20mm;
+      height: 26mm;
+    }
+    .template-compact .r-section {
+      margin-top: 4mm;
+    }
+    .template-compact .r-section-title {
+      display: block;
+      color: var(--theme-primary);
+      border-bottom: 1px solid var(--theme-border);
+      margin-bottom: 2.2mm;
+    }
+    .template-compact .r-section-title::before { display: none; }
+    .template-compact .r-section-title span {
+      background: transparent;
+      padding: 0 0 1mm;
+      display: block;
+    }
+    .template-compact .r-item {
+      margin-bottom: calc(2.8mm + var(--resume-module-gap));
+    }
+    .template-compact .r-body {
+      margin-top: .8mm;
+    }
+
+    .template-academic {
+      padding: 14mm 16mm;
+      color: #251f1f;
+    }
+    .template-academic .r-header {
+      grid-template-columns: 1fr auto;
+      text-align: center;
+      border-bottom: 1px solid var(--theme-primary);
+      padding-bottom: 5mm;
+      margin-bottom: 6mm;
+    }
+    .template-academic .r-name {
+      color: var(--theme-deep);
+    }
+    .template-academic .r-target,
+    .template-academic .r-contact a {
+      color: var(--theme-primary);
+    }
+    .template-academic .r-section-title {
+      display: block;
+      color: var(--theme-primary);
+      border-bottom: 1px solid var(--theme-border);
+      letter-spacing: .3px;
+      margin-bottom: 3.2mm;
+    }
+    .template-academic .r-section-title::before { display: none; }
+    .template-academic .r-section-title span {
+      background: transparent;
+      padding: 0 0 1.5mm;
+      display: block;
+    }
+    .template-academic .r-line {
+      font-family: Georgia, "Times New Roman", "SimSun", serif;
+    }
+
+    .template-banner {
+      padding: 8mm 11mm 12mm;
+      border: 1px solid #9ca3af;
+      color: #2d333b;
+    }
+    .template-banner .r-header {
+      margin: -8mm -11mm 6mm;
+      padding: 6mm 12mm;
+      min-height: 40mm;
+      grid-template-columns: 32mm 1fr 54mm;
+      text-align: left;
+      background:
+        linear-gradient(110deg, #a8a8a8 0 61%, transparent 61% 64%, var(--theme-deep) 64% 100%);
+      color: #fff;
+    }
+    .template-banner .r-header > div {
+      grid-column: 2;
+      align-self: center;
+    }
+    .template-banner .r-photo {
+      grid-column: 1;
+      grid-row: 1;
+      width: 26mm;
+      height: 32mm;
+      border: 2px solid #fff;
+      background: #e5e7eb;
+      color: #6b7280;
+      box-shadow: 0 2px 7px rgba(0, 0, 0, .22);
+    }
+    .template-banner .r-name {
+      color: #fff;
+      font-size: calc(23px * var(--resume-scale));
+    }
+    .template-banner .r-target,
+    .template-banner .r-contact,
+    .template-banner .r-contact a {
+      color: #f5f7fb;
+    }
+    .template-banner .r-section-title {
+      display: block;
+      color: var(--theme-deep);
+      border-bottom: 1px solid var(--theme-border);
+      margin-bottom: 3mm;
+    }
+    .template-banner .r-section-title::before { display: none; }
+    .template-banner .r-section-title span {
+      background: transparent;
+      padding: 0 0 1.4mm;
+      display: block;
+    }
+    .template-banner .r-section-title span::before {
+      content: "◆";
+      margin-right: 2mm;
+      color: var(--theme-primary);
+      font-size: calc(8px * var(--resume-scale));
+    }
+
+    .template-teal {
+      padding: 13mm 15mm;
+      color: #394247;
+    }
+    .template-teal .r-header {
+      grid-template-columns: 1fr 30mm;
+      text-align: left;
+      border-bottom: 1px solid #d7e3e6;
+      padding-bottom: 5mm;
+      margin-bottom: 7mm;
+    }
+    .template-teal .r-name {
+      color: var(--theme-primary);
+      font-size: calc(25px * var(--resume-scale));
+      display: inline-block;
+      border-bottom: 2px solid var(--theme-border);
+      padding-bottom: 1.6mm;
+    }
+    .template-teal .r-target {
+      color: #3b4c52;
+      margin-left: 12mm;
+    }
+    .template-teal .r-contact {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2mm 12mm;
+      margin-top: 4mm;
+      color: #52676d;
+    }
+    .template-teal .r-contact a,
+    .template-teal .r-section-title,
+    .template-teal .r-line {
+      color: var(--theme-primary);
+    }
+    .template-teal .r-photo {
+      width: 25mm;
+      height: 32mm;
+      border-color: var(--theme-border);
+      background: var(--theme-soft);
+    }
+    .template-teal .r-section-title {
+      display: block;
+      border-bottom: 1px solid var(--theme-border);
+      margin-bottom: 3mm;
+    }
+    .template-teal .r-section-title::before { display: none; }
+    .template-teal .r-section-title span {
+      background: transparent;
+      padding: 0 0 1.5mm;
+      display: block;
+    }
+    .template-teal .r-section-title span::before {
+      content: "●";
+      margin-right: 2mm;
+      color: var(--theme-primary);
+      font-size: calc(7px * var(--resume-scale));
+    }
+
+    @media (max-width: 1100px) {
+      .workspace { grid-template-columns: 1fr; }
+      .editor { border-right: none; border-bottom: 1px solid var(--line); max-height: none; }
+      .preview-wrap { padding: 16px; }
+    }
+    @media print {
+      body { background: #fff; }
+      .toolbar, .editor { display: none !important; }
+      .workspace, .preview-wrap { display: block; padding: 0; overflow: visible; }
+      .resume-stack {
+        display: block;
+        --preview-zoom: 1;
+        transform: none;
+      }
+      .resume {
+        width: 210mm;
+        height: 297mm;
+        min-height: 297mm;
+        box-shadow: none;
+        margin: 0;
+        overflow: hidden;
+        break-after: page;
+        page-break-after: always;
+      }
+      .resume:last-child {
+        break-after: auto;
+        page-break-after: auto;
+      }
+      @page { size: A4; margin: 0; }
+      .r-header,
+      .r-item,
+      .keep-together {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      .r-section-title {
+        break-after: avoid;
+        page-break-after: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="toolbar">
+      <div class="brand">本地简历工具</div>
+      <select id="templateSelect" aria-label="选择模板">
+        <option value="blue">蓝白技术简历</option>
+        <option value="sidebar">侧栏信息简历</option>
+        <option value="minimal">极简黑白简历</option>
+        <option value="finance">金融稳重简历</option>
+        <option value="compact">紧凑投递简历</option>
+        <option value="academic">学术科研简历</option>
+        <option value="banner">商务横幅简历</option>
+        <option value="teal">青绿清爽简历</option>
+      </select>
+      <select id="colorThemeSelect" aria-label="选择颜色">
+        <option value="blue">颜色 蓝色</option>
+        <option value="teal">颜色 青绿</option>
+        <option value="slate">颜色 深灰</option>
+        <option value="black">颜色 墨黑</option>
+        <option value="burgundy">颜色 酒红</option>
+        <option value="brown">颜色 金棕</option>
+      </select>
+      <select id="fontSelect" aria-label="选择字体">
+        <option value='-apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif'>系统默认</option>
+        <option value='"Microsoft YaHei", "PingFang SC", sans-serif'>微软雅黑</option>
+        <option value='"SimSun", "Songti SC", serif'>宋体</option>
+        <option value='"KaiTi", "Kaiti SC", serif'>楷体</option>
+        <option value='Arial, "Microsoft YaHei", sans-serif'>Arial</option>
+        <option value='"Times New Roman", "SimSun", serif'>Times New Roman</option>
+      </select>
+      <select id="fontSizeSelect" aria-label="选择字号">
+        <option value="0.9">小五</option>
+        <option value="1">五号</option>
+        <option value="1.08">小四</option>
+        <option value="1.16">四号</option>
+        <option value="1.24">小三</option>
+      </select>
+      <select id="lineHeightSelect" aria-label="选择行距">
+        <option value="10pt">行距 10 磅</option>
+        <option value="11pt">行距 11 磅</option>
+        <option value="12pt">行距 12 磅</option>
+        <option value="13pt">行距 13 磅</option>
+        <option value="14pt">行距 14 磅</option>
+        <option value="15pt">行距 15 磅</option>
+        <option value="16pt">行距 16 磅</option>
+        <option value="17pt">行距 17 磅</option>
+        <option value="18pt">行距 18 磅</option>
+        <option value="19pt">行距 19 磅</option>
+        <option value="20pt">行距 20 磅</option>
+        <option value="21pt">行距 21 磅</option>
+        <option value="22pt">行距 22 磅</option>
+        <option value="23pt">行距 23 磅</option>
+        <option value="24pt">行距 24 磅</option>
+      </select>
+      <select id="moduleGapSelect" aria-label="选择模块内距">
+        <option value="0pt">模块内距 0 磅</option>
+        <option value="1pt">模块内距 1 磅</option>
+        <option value="2pt">模块内距 2 磅</option>
+        <option value="3pt">模块内距 3 磅</option>
+        <option value="4pt">模块内距 4 磅</option>
+        <option value="5pt">模块内距 5 磅</option>
+        <option value="6pt">模块内距 6 磅</option>
+        <option value="7pt">模块内距 7 磅</option>
+        <option value="8pt">模块内距 8 磅</option>
+        <option value="9pt">模块内距 9 磅</option>
+        <option value="10pt">模块内距 10 磅</option>
+      </select>
+      <select id="previewZoomSelect" aria-label="选择预览缩放">
+        <option value="0.5">预览 50%</option>
+        <option value="0.67">预览 67%</option>
+        <option value="0.75">预览 75%</option>
+        <option value="0.9">预览 90%</option>
+        <option value="1">预览 100%</option>
+        <option value="1.25">预览 125%</option>
+      </select>
+      <button id="exportBtn" type="button">导出 JSON</button>
+      <label class="file-btn">导入 JSON<input id="importInput" type="file" accept="application/json"></label>
+      <button id="setDefaultBtn" type="button">设为默认示例</button>
+      <button id="resetBtn" type="button">恢复示例</button>
+      <div class="spacer"></div>
+      <div class="status" id="status">已自动保存</div>
+      <button class="primary" id="printBtn" type="button">打印 / PDF</button>
+    </header>
+
+    <main class="workspace">
+      <aside class="editor" id="editor"></aside>
+      <section class="preview-wrap">
+        <div class="resume-stack" id="resumePreview"></div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "local-resume-tool-v1";
+    const CUSTOM_DEFAULT_KEY = "local-resume-tool-default-v1";
+    const repeatable = new Set(["education", "work", "internship", "projects", "honors", "papers"]);
+    const sectionLabels = {
+      basic: "基本信息",
+      education: "教育背景",
+      work: "工作经历",
+      internship: "实习经历",
+      projects: "项目经历",
+      honors: "荣誉证书",
+      papers: "科研论文",
+      skills: "技能特长",
+      interests: "兴趣爱好"
+    };
+    const defaultData = {
+      template: "blue",
+      colorTheme: "blue",
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif',
+      fontScale: "1",
+      lineHeight: "14pt",
+      moduleGap: "2pt",
+      hiddenSections: [],
+      previewZoom: "1",
+      basic: {
+        name: "....",
+        target: "....",
+        city: "....",
+        years: "....",
+        phone: "....",
+        email: "....",
+        links: "....\n....\n....",
+        summary: "....\n....",
+        photo: ""
+      },
+      education: [
+        { school: "....", degree: "....", major: "....", date: "....", details: "...." }
+      ],
+      work: [
+        { org: "....", role: "....", date: "....", details: "....\n....\n...." }
+      ],
+      internship: [
+        { org: "....", role: "....", date: "....", details: "....\n...." }
+      ],
+      projects: [
+        { name: "....", role: "....", date: "....", details: "....\n....\n...." },
+        { name: "....", role: "....", date: "....", details: "....\n...." }
+      ],
+      honors: [
+        { title: "....", date: "....", details: "...." }
+      ],
+      papers: [
+        { title: "....", venue: "....", date: "....", details: "...." }
+      ],
+      skills: {
+        groups: "....：....\n....：....\n....：...."
+      },
+      interests: {
+        text: "...."
+      }
+    };
+
+    let data = loadData();
+
+    function clone(value) {
+      return JSON.parse(JSON.stringify(value));
+    }
+    function normalizeLinks(value) {
+      const text = String(value || "");
+      return text.includes("\n") ? text : text.split(/\s+\/\s+/).join("\n");
+    }
+    function normalizeLineHeight(value) {
+      const legacy = {
+        "1.2": "12pt",
+        "1.38": "14pt",
+        "1.55": "16pt",
+        "1.75": "18pt"
+      };
+      const text = String(value || "").trim();
+      if (legacy[text]) return legacy[text];
+      return /^\d+(\.\d+)?pt$/.test(text) ? text : defaultData.lineHeight;
+    }
+    function normalizeModuleGap(value) {
+      const text = String(value || "").trim();
+      return /^\d+(\.\d+)?pt$/.test(text) ? text : defaultData.moduleGap;
+    }
+    function getColorTheme(value) {
+      const themes = {
+        blue: { primary: "#3f7cff", soft: "#eaf2ff", deep: "#1f4fbf", border: "#bcd4ff" },
+        teal: { primary: "#0f766e", soft: "#eef8f6", deep: "#0f3d3a", border: "#99c9c2" },
+        slate: { primary: "#475569", soft: "#f1f5f9", deep: "#1e293b", border: "#cbd5e1" },
+        black: { primary: "#111827", soft: "#f3f4f6", deep: "#030712", border: "#d1d5db" },
+        burgundy: { primary: "#9f1239", soft: "#fff1f2", deep: "#5f0f25", border: "#fecdd3" },
+        brown: { primary: "#8b5e34", soft: "#fbf4ea", deep: "#4f3420", border: "#d8c7b4" }
+      };
+      return themes[value] || themes[defaultData.colorTheme];
+    }
+    function normalizeData(value) {
+      const next = value || clone(defaultData);
+      if (next.basic) next.basic.links = normalizeLinks(next.basic.links);
+      next.lineHeight = normalizeLineHeight(next.lineHeight);
+      next.moduleGap = normalizeModuleGap(next.moduleGap);
+      next.hiddenSections = Array.isArray(next.hiddenSections) ? next.hiddenSections : [];
+      return next;
+    }
+    function getDefaultData() {
+      try {
+        const savedDefault = localStorage.getItem(CUSTOM_DEFAULT_KEY);
+        return savedDefault ? normalizeData(Object.assign(clone(defaultData), JSON.parse(savedDefault))) : normalizeData(clone(defaultData));
+      } catch {
+        return normalizeData(clone(defaultData));
+      }
+    }
+    function loadData() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        return saved ? normalizeData(Object.assign(getDefaultData(), JSON.parse(saved))) : normalizeData(getDefaultData());
+      } catch {
+        return normalizeData(getDefaultData());
+      }
+    }
+    function saveData() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      const el = document.getElementById("status");
+      el.textContent = "已自动保存";
+      clearTimeout(saveData.timer);
+      saveData.timer = setTimeout(() => { el.textContent = "编辑中"; }, 1200);
+    }
+    function esc(value) {
+      return String(value || "").replace(/[&<>"']/g, s => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[s]));
+    }
+    function lines(value) {
+      return String(value || "").split(/\n+/).map(v => v.trim()).filter(Boolean);
+    }
+
+    function renderEditor() {
+      document.getElementById("templateSelect").value = data.template || "blue";
+      document.getElementById("colorThemeSelect").value = data.colorTheme || defaultData.colorTheme;
+      document.getElementById("fontSelect").value = data.fontFamily || defaultData.fontFamily;
+      document.getElementById("fontSizeSelect").value = data.fontScale || "1";
+      document.getElementById("lineHeightSelect").value = normalizeLineHeight(data.lineHeight);
+      document.getElementById("moduleGapSelect").value = normalizeModuleGap(data.moduleGap);
+      document.getElementById("previewZoomSelect").value = data.previewZoom || "1";
+      const editor = document.getElementById("editor");
+      editor.innerHTML = [
+        renderDeletedSections(),
+        renderBasicEditor(),
+        isSectionVisible("education") ? renderRepeatableEditor("education", ["school", "degree", "major", "date", "details"]) : "",
+        isSectionVisible("work") ? renderRepeatableEditor("work", ["org", "role", "date", "details"]) : "",
+        isSectionVisible("internship") ? renderRepeatableEditor("internship", ["org", "role", "date", "details"]) : "",
+        isSectionVisible("projects") ? renderRepeatableEditor("projects", ["name", "role", "date", "details"]) : "",
+        isSectionVisible("honors") ? renderRepeatableEditor("honors", ["title", "date", "details"]) : "",
+        isSectionVisible("papers") ? renderRepeatableEditor("papers", ["title", "venue", "date", "details"]) : "",
+        isSectionVisible("skills") ? renderSimpleEditor("skills", "groups", "每行一个技能组，例如：....：....") : "",
+        isSectionVisible("interests") ? renderSimpleEditor("interests", "text", "用顿号或逗号分隔") : ""
+      ].join("");
+    }
+
+    function input(label, path, value, type = "text") {
+      return `<label>${label}<input type="${type}" data-path="${path}" value="${esc(value)}"></label>`;
+    }
+    function textarea(label, path, value, hint = "") {
+      return `<label>${label}<textarea data-path="${path}" placeholder="${esc(hint)}">${esc(value)}</textarea></label>`;
+    }
+    function renderDetails(key, body, open = false) {
+      const actions = key === "basic" ? "" : `<span class="summary-actions"><button class="mini-btn danger" type="button" data-action="delete-section" data-section="${key}">删除模块</button></span>`;
+      return `<details ${open ? "open" : ""}><summary><span class="summary-title">${sectionLabels[key]}</span>${actions}</summary><div class="section-body">${body}</div></details>`;
+    }
+    function renderDeletedSections() {
+      const hidden = (data.hiddenSections || []).filter(key => sectionLabels[key]);
+      if (!hidden.length) return "";
+      return `<div class="deleted-sections">已删除模块<div class="restore-list">${hidden.map(key => `<button class="mini-btn" type="button" data-action="restore-section" data-section="${key}">恢复${sectionLabels[key]}</button>`).join("")}</div></div>`;
+    }
+    function renderBasicEditor() {
+      const b = data.basic;
+      const photo = b.photo ? `<img src="${b.photo}" alt="照片">` : "照片";
+      const body = `
+        <div class="grid">
+          ${input("姓名", "basic.name", b.name)}
+          ${input("求职方向", "basic.target", b.target)}
+          ${input("城市", "basic.city", b.city)}
+          ${input("工作年限", "basic.years", b.years)}
+          ${input("手机号", "basic.phone", b.phone)}
+          ${input("邮箱", "basic.email", b.email)}
+        </div>
+        ${textarea("链接 / 作品集", "basic.links", b.links, "一个链接一行，例如：GitHub")}
+        ${textarea("个人摘要", "basic.summary", b.summary)}
+        <div class="photo-row">
+          <div class="photo-thumb">${photo}</div>
+          <div>
+            <label>上传照片<input id="photoInput" type="file" accept="image/*"></label>
+            <button class="mini-btn danger" type="button" data-action="remove-photo">移除照片</button>
+          </div>
+        </div>`;
+      return renderDetails("basic", body, true);
+    }
+    function renderRepeatableEditor(key, fields) {
+      const items = data[key] || [];
+      const body = items.map((item, index) => {
+        const controls = fields.map(field => {
+          const label = fieldLabel(field);
+          const path = `${key}.${index}.${field}`;
+          return field === "details" ? textarea(label, path, item[field], "每行一条要点") : input(label, path, item[field]);
+        }).join("");
+        return `<div class="entry">
+          <div class="entry-head">
+            <span>${sectionLabels[key]} #${index + 1}</span>
+            <div class="entry-actions">
+              <button class="mini-btn" type="button" data-action="move-entry-up" data-section="${key}" data-index="${index}" ${index === 0 ? "disabled" : ""}>上移</button>
+              <button class="mini-btn" type="button" data-action="move-entry-down" data-section="${key}" data-index="${index}" ${index === items.length - 1 ? "disabled" : ""}>下移</button>
+              <button class="mini-btn danger" type="button" data-action="remove-entry" data-section="${key}" data-index="${index}">删除</button>
+            </div>
+          </div>
+          <div class="grid">${controls}</div>
+        </div>`;
+      }).join("");
+      return renderDetails(key, `${body}<button class="add-btn" type="button" data-action="add-entry" data-section="${key}">添加${sectionLabels[key]}</button>`, false);
+    }
+    function renderSimpleEditor(key, field, hint) {
+      return renderDetails(key, textarea(sectionLabels[key], `${key}.${field}`, data[key][field], hint), false);
+    }
+    function fieldLabel(field) {
+      return {
+        school: "学校", degree: "学历", major: "专业", date: "时间",
+        details: "要点", org: "机构 / 公司", role: "职位 / 角色",
+        name: "项目名称", title: "名称", venue: "发表/收录/来源"
+      }[field] || field;
+    }
+
+    function setByPath(path, value) {
+      const parts = path.split(".");
+      let target = data;
+      while (parts.length > 1) target = target[parts.shift()];
+      target[parts[0]] = value;
+      saveData();
+      renderPreview();
+    }
+
+    function isSectionVisible(key) {
+      return !(data.hiddenSections || []).includes(key);
+    }
+
+    function deleteSection(key) {
+      if (!sectionLabels[key] || key === "basic") return;
+      data.hiddenSections = Array.from(new Set([...(data.hiddenSections || []), key]));
+      saveData(); renderEditor(); renderPreview();
+    }
+
+    function restoreSection(key) {
+      data.hiddenSections = (data.hiddenSections || []).filter(item => item !== key);
+      saveData(); renderEditor(); renderPreview();
+    }
+
+    function moveEntry(section, index, direction) {
+      const items = data[section] || [];
+      const nextIndex = index + direction;
+      if (nextIndex < 0 || nextIndex >= items.length) return;
+      [items[index], items[nextIndex]] = [items[nextIndex], items[index]];
+      saveData(); renderEditor(); renderPreview();
+    }
+
+    function blankEntry(section) {
+      const map = {
+        education: { school: "", degree: "", major: "", date: "", details: "" },
+        work: { org: "", role: "", date: "", details: "" },
+        internship: { org: "", role: "", date: "", details: "" },
+        projects: { name: "", role: "", date: "", details: "" },
+        honors: { title: "", date: "", details: "" },
+        papers: { title: "", venue: "", date: "", details: "" }
+      };
+      return clone(map[section]);
+    }
+
+    function renderPreview() {
+      const stack = document.getElementById("resumePreview");
+      applyPreviewZoom(stack);
+      stack.innerHTML = "";
+      const template = data.template || "blue";
+      const pages = template === "sidebar" ? [renderSidebar()] : paginateBlocks(buildMainBlocks(), template);
+      pages.forEach(pageHtml => {
+        const page = document.createElement("article");
+        page.className = `resume template-${template}`;
+        applyResumeSettings(page);
+        page.innerHTML = pageHtml;
+        stack.appendChild(page);
+      });
+    }
+    function applyResumeSettings(preview) {
+      const theme = getColorTheme(data.colorTheme);
+      preview.style.setProperty("--resume-font", data.fontFamily || defaultData.fontFamily);
+      preview.style.setProperty("--theme-primary", theme.primary);
+      preview.style.setProperty("--theme-soft", theme.soft);
+      preview.style.setProperty("--theme-deep", theme.deep);
+      preview.style.setProperty("--theme-border", theme.border);
+      preview.style.setProperty("--blue", theme.primary);
+      preview.style.setProperty("--blue-soft", theme.soft);
+      preview.style.setProperty("--resume-scale", data.fontScale || "1");
+      preview.style.setProperty("--resume-line-height", normalizeLineHeight(data.lineHeight));
+      preview.style.setProperty("--resume-module-gap", normalizeModuleGap(data.moduleGap));
+    }
+    function applyPreviewZoom(stack) {
+      stack.style.setProperty("--preview-zoom", data.previewZoom || "1");
+    }
+    function photoHtml() {
+      return `<div class="r-photo">${data.basic.photo ? `<img src="${data.basic.photo}" alt="照片">` : "照片"}</div>`;
+    }
+    function linksHtml() {
+      const links = lines(data.basic.links);
+      if (!links.length) return "";
+      return `<div class="r-links">${links.map(link => `<a>${esc(link)}</a>`).join("")}</div>`;
+    }
+    function paragraphHtml(value) {
+      return lines(value).map(line => `<p class="r-body">${esc(line)}</p>`).join("");
+    }
+    function headerHtml(sidebar = false) {
+      const b = data.basic;
+      return `<header class="r-header">
+        <div>
+          <div><span class="r-name">${esc(b.name)}</span><span class="r-target">${esc(b.target)}</span></div>
+          <div class="r-contact">
+            <span>城市：${esc(b.city)}</span> <span>| 工作年限：${esc(b.years)}</span> <span>| ${esc(b.phone)}</span><br>
+            <a>${esc(b.email)}</a>${linksHtml()}
+          </div>
+          ${sidebar ? `<div style="margin-top:5mm">${paragraphHtml(b.summary)}</div>` : ""}
+        </div>
+        ${photoHtml()}
+      </header>`;
+    }
+    function section(title, content) {
+      if (!content.trim()) return "";
+      return `<section class="r-section"><div class="r-section-title"><span>${title}</span></div>${content}</section>`;
+    }
+    function sectionOpen(title) {
+      return `<section class="r-section"><div class="r-section-title"><span>${title}</span></div>`;
+    }
+    function sectionClose() {
+      return `</section>`;
+    }
+    function item(title, meta, date, details, sub = "") {
+      const bullets = lines(details).map(v => `<li>${esc(v)}</li>`).join("");
+      return `<div class="r-item keep-together">
+        <div class="r-line"><span>${esc(title)}</span><span class="r-date">${esc(date)}</span></div>
+        ${sub ? `<div class="r-sub">${esc(sub)}${meta ? `｜${esc(meta)}` : ""}</div>` : (meta ? `<div class="r-sub">${esc(meta)}</div>` : "")}
+        ${bullets ? `<ul class="r-body">${bullets}</ul>` : ""}
+      </div>`;
+    }
+    function renderEntries(key) {
+      return (data[key] || []).map(entry => {
+        if (key === "education") return item(entry.school, `${entry.degree}｜${entry.major}`, entry.date, entry.details);
+        if (key === "projects") return item(entry.name, entry.role, entry.date, entry.details);
+        if (key === "honors") return item(entry.title, "", entry.date, entry.details);
+        if (key === "papers") return item(entry.title, entry.venue, entry.date, entry.details);
+        return item(entry.org, "", entry.date, entry.details, entry.role);
+      }).join("");
+    }
+    function renderSkillLines() {
+      return lines(data.skills.groups).map(line => {
+        const [head, ...rest] = line.split(/[:：]/);
+        return `<p class="r-kv"><b>${esc(head)}：</b>${esc(rest.join("："))}</p>`;
+      }).join("");
+    }
+    function renderMainTemplate() {
+      const summary = paragraphHtml(data.basic.summary);
+      const ifSection = (key, html) => isSectionVisible(key) ? html : "";
+      return `${headerHtml(false)}
+        ${ifSection("summary", section("个人摘要", summary))}
+        ${ifSection("education", section("教育背景", renderEntries("education")))}
+        ${ifSection("work", section("工作经历", renderEntries("work")))}
+        ${ifSection("internship", section("实习经历", renderEntries("internship")))}
+        ${ifSection("projects", section("项目经历", renderEntries("projects")))}
+        ${ifSection("honors", section("荣誉证书", renderEntries("honors")))}
+        ${ifSection("papers", section("科研论文", renderEntries("papers")))}
+        ${ifSection("skills", section("技能特长", renderSkillLines()))}
+        ${ifSection("interests", section("兴趣爱好", `<p class="r-body">${esc(data.interests.text)}</p>`))}`;
+    }
+    function buildMainBlocks() {
+      const blocks = [{ kind: "block", html: headerHtml(false) }];
+      const addPlain = (title, html) => {
+        if (html && html.trim()) blocks.push({ kind: "block", html: section(title, html) });
+      };
+      const addItems = (title, key) => {
+        if (!isSectionVisible(key)) return;
+        const items = renderEntryItems(key);
+        if (!items.length) return;
+        blocks.push({ kind: "title", html: sectionOpen(title) });
+        items.forEach(html => blocks.push({ kind: "item", html }));
+        blocks.push({ kind: "close", html: sectionClose() });
+      };
+      if (isSectionVisible("summary")) addPlain("个人摘要", paragraphHtml(data.basic.summary));
+      addItems("教育背景", "education");
+      addItems("工作经历", "work");
+      addItems("实习经历", "internship");
+      addItems("项目经历", "projects");
+      addItems("荣誉证书", "honors");
+      addItems("科研论文", "papers");
+      if (isSectionVisible("skills")) addPlain("技能特长", renderSkillLines());
+      if (isSectionVisible("interests")) addPlain("兴趣爱好", `<p class="r-body">${esc(data.interests.text)}</p>`);
+      return blocks;
+    }
+    function renderEntryItems(key) {
+      return (data[key] || []).map(entry => {
+        if (key === "education") return item(entry.school, `${entry.degree}｜${entry.major}`, entry.date, entry.details);
+        if (key === "projects") return item(entry.name, entry.role, entry.date, entry.details);
+        if (key === "honors") return item(entry.title, "", entry.date, entry.details);
+        if (key === "papers") return item(entry.title, entry.venue, entry.date, entry.details);
+        return item(entry.org, "", entry.date, entry.details, entry.role);
+      });
+    }
+    function paginateBlocks(blocks, template) {
+      const measure = document.createElement("article");
+      measure.className = `resume template-${template}`;
+      applyResumeSettings(measure);
+      measure.style.position = "absolute";
+      measure.style.left = "-10000px";
+      measure.style.top = "0";
+      measure.style.visibility = "hidden";
+      document.body.appendChild(measure);
+
+      const pages = [];
+      let current = "";
+      let openSectionTitle = "";
+      const closeOpenSection = () => openSectionTitle ? sectionClose() : "";
+
+      const fits = html => {
+        measure.innerHTML = html;
+        return measure.scrollHeight <= measure.clientHeight + 1;
+      };
+      const pushPage = () => {
+        if (!current.trim()) return;
+        pages.push(current + closeOpenSection());
+        current = openSectionTitle ? sectionOpen(openSectionTitle) : "";
+      };
+
+      for (const block of blocks) {
+        if (block.kind === "title") {
+          const title = block.html.match(/<span>(.*?)<\/span>/)?.[1] || "";
+          const next = current + closeOpenSection() + block.html;
+          if (current && !fits(next)) {
+            pages.push(current + closeOpenSection());
+            current = block.html;
+          } else {
+            current = next;
+          }
+          openSectionTitle = title;
+          continue;
+        }
+        if (block.kind === "close") {
+          current += block.html;
+          openSectionTitle = "";
+          continue;
+        }
+        const candidate = current + block.html;
+        if (current && !fits(candidate)) {
+          pushPage();
+          current += block.html;
+        } else {
+          current = candidate;
+        }
+      }
+      if (current.trim()) pages.push(current + closeOpenSection());
+      measure.remove();
+      return pages.length ? pages : [renderMainTemplate()];
+    }
+    function renderSidebar() {
+      return `<aside class="side">
+        ${headerHtml(true)}
+        ${isSectionVisible("skills") ? section("技能特长", renderSkillLines()) : ""}
+        ${isSectionVisible("interests") ? section("兴趣爱好", `<p class="r-body">${esc(data.interests.text)}</p>`) : ""}
+      </aside>
+      <main class="main">
+        ${isSectionVisible("education") ? section("教育背景", renderEntries("education")) : ""}
+        ${isSectionVisible("work") ? section("工作经历", renderEntries("work")) : ""}
+        ${isSectionVisible("internship") ? section("实习经历", renderEntries("internship")) : ""}
+        ${isSectionVisible("projects") ? section("项目经历", renderEntries("projects")) : ""}
+        ${isSectionVisible("honors") ? section("荣誉证书", renderEntries("honors")) : ""}
+        ${isSectionVisible("papers") ? section("科研论文", renderEntries("papers")) : ""}
+      </main>`;
+    }
+
+    document.getElementById("editor").addEventListener("input", event => {
+      const path = event.target.dataset.path;
+      if (path) setByPath(path, event.target.value);
+    });
+    document.getElementById("editor").addEventListener("click", event => {
+      const action = event.target.dataset.action;
+      if (!action) return;
+      if (action === "add-entry") {
+        data[event.target.dataset.section].push(blankEntry(event.target.dataset.section));
+        saveData(); renderEditor(); renderPreview();
+      }
+      if (action === "remove-entry") {
+        data[event.target.dataset.section].splice(Number(event.target.dataset.index), 1);
+        saveData(); renderEditor(); renderPreview();
+      }
+      if (action === "move-entry-up") {
+        moveEntry(event.target.dataset.section, Number(event.target.dataset.index), -1);
+      }
+      if (action === "move-entry-down") {
+        moveEntry(event.target.dataset.section, Number(event.target.dataset.index), 1);
+      }
+      if (action === "delete-section") {
+        event.preventDefault();
+        deleteSection(event.target.dataset.section);
+      }
+      if (action === "restore-section") {
+        restoreSection(event.target.dataset.section);
+      }
+      if (action === "remove-photo") {
+        data.basic.photo = "";
+        saveData(); renderEditor(); renderPreview();
+      }
+    });
+    document.getElementById("editor").addEventListener("change", event => {
+      if (event.target.id !== "photoInput" || !event.target.files[0]) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        data.basic.photo = reader.result;
+        saveData(); renderEditor(); renderPreview();
+      };
+      reader.readAsDataURL(event.target.files[0]);
+    });
+    document.getElementById("templateSelect").addEventListener("change", event => {
+      data.template = event.target.value;
+      saveData(); renderPreview();
+    });
+    document.getElementById("colorThemeSelect").addEventListener("change", event => {
+      data.colorTheme = event.target.value;
+      saveData(); renderPreview();
+    });
+    document.getElementById("fontSelect").addEventListener("change", event => {
+      data.fontFamily = event.target.value;
+      saveData(); renderPreview();
+    });
+    document.getElementById("fontSizeSelect").addEventListener("change", event => {
+      data.fontScale = event.target.value;
+      saveData(); renderPreview();
+    });
+    document.getElementById("lineHeightSelect").addEventListener("change", event => {
+      data.lineHeight = event.target.value;
+      saveData(); renderPreview();
+    });
+    document.getElementById("moduleGapSelect").addEventListener("change", event => {
+      data.moduleGap = event.target.value;
+      saveData(); renderPreview();
+    });
+    document.getElementById("previewZoomSelect").addEventListener("change", event => {
+      data.previewZoom = event.target.value;
+      saveData(); renderPreview();
+    });
+    document.getElementById("printBtn").addEventListener("click", () => window.print());
+    document.getElementById("resetBtn").addEventListener("click", () => {
+      if (!confirm("恢复示例会覆盖当前本地内容，确定继续吗？")) return;
+      data = getDefaultData();
+      saveData(); renderEditor(); renderPreview();
+    });
+    document.getElementById("setDefaultBtn").addEventListener("click", () => {
+      data = normalizeData(data);
+      localStorage.setItem(CUSTOM_DEFAULT_KEY, JSON.stringify(data));
+      saveData(); renderEditor(); renderPreview();
+      const el = document.getElementById("status");
+      el.textContent = "已设为默认示例";
+      clearTimeout(saveData.timer);
+    });
+    document.getElementById("exportBtn").addEventListener("click", () => {
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${data.basic.name || "resume"}-简历数据.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+    document.getElementById("importInput").addEventListener("change", event => {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          data = normalizeData(Object.assign(clone(defaultData), JSON.parse(reader.result)));
+          saveData(); renderEditor(); renderPreview();
+        } catch {
+          alert("JSON 文件无法读取，请确认格式正确。");
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = "";
+    });
+
+    renderEditor();
+    renderPreview();
+  </script>
+</body>
+</html>
