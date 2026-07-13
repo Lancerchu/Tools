@@ -1,61 +1,45 @@
-# Local Resume Template Tool
+# Tools
 
-一个纯前端、本地运行的中文简历编辑与预览工具。它支持多模板、颜色主题、字号、行距、模块隐藏、条目排序、照片上传、JSON 导入导出，以及通过浏览器打印导出 PDF。
+Some useful tools collected in one repository.
 
-## 特性
+## Projects
 
-- 本地单文件运行，无需后端服务
-- 左侧编辑、右侧 A4 简历预览
-- 多种简历模板与颜色主题
-- 支持字体、字号、行距、模块内距、预览缩放
-- 支持照片上传、模块隐藏/恢复、条目上移/下移
-- 支持 JSON 导入导出和本地自动保存
-- 支持浏览器打印 / 另存为 PDF
+| Tool | Description | Path |
+| --- | --- | --- |
+| Local Resume Template Tool | A local-first resume editor with templates, themes, JSON import/export, and print-to-PDF support. | [`tools/resume-template-tool`](tools/resume-template-tool) |
 
-## 快速开始
+## Repository Structure
 
-直接打开：
-
-```bash
-open index.html
+```text
+.
+├── tools/
+│   └── resume-template-tool/
+├── LICENSE
+├── README.md
+└── package.json
 ```
 
-或者启动一个本地静态服务：
+Each tool should live in its own folder under `tools/` and include its own `README.md`.
+
+## Development
+
+Run all available checks from the repository root:
 
 ```bash
-python3 -m http.server 8765
+npm test
 ```
 
-然后访问：
+Run the resume tool locally:
+
+```bash
+npm run resume:serve
+```
+
+Then open:
 
 ```text
 http://localhost:8765/
 ```
-
-## 测试
-
-```bash
-npm test
-```
-
-测试脚本会检查核心 UI 控件、模板能力、分页逻辑和隐私友好的示例数据结构。
-
-## 隐私说明
-
-本项目已移除原始工作目录中的个人 PDF、截图、照片、渲染产物和真实简历生成脚本。仓库中的示例数据均为虚构信息，仅用于演示。
-
-应用默认使用浏览器 `localStorage` 保存本地编辑内容；这些内容不会上传到任何服务器。
-
-## 开源前检查
-
-建议推送 GitHub 前运行：
-
-```bash
-npm test
-grep -R "个人敏感关键词" .
-```
-
-如你基于本项目制作个人版本，请不要提交自己的导出 JSON、照片、PDF 或真实简历内容。
 
 ## License
 

@@ -1,18 +1,17 @@
 {
-  "name": "local-resume-template-tool",
+  "name": "tools",
   "version": "1.0.0",
   "private": false,
-  "description": "A local, single-page resume editor with templates, themes, JSON import/export, and print-to-PDF support.",
+  "description": "A collection of useful local-first tools.",
   "type": "module",
   "scripts": {
-    "test": "node test.mjs"
+    "test": "npm --prefix tools/resume-template-tool test",
+    "resume:serve": "python3 -m http.server 8765 --directory tools/resume-template-tool"
   },
   "keywords": [
-    "resume",
-    "cv",
-    "template",
-    "editor",
-    "local-first"
+    "tools",
+    "local-first",
+    "resume"
   ],
   "license": "MIT"
 }
